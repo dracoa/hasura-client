@@ -1,8 +1,8 @@
 package hasura
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/machinebox/graphql"
 	"reflect"
 )
 
@@ -14,6 +14,13 @@ type Model struct {
 	Wheres    map[string]map[string]interface{}
 	Operation string
 	End       bool
+	Client    *graphql.Client
+	Secret    string
+}
+
+type MutationResult struct {
+	AffectedRows int                      `json:"affected_rows"`
+	Returning    []map[string]interface{} `json:"returning"`
 }
 
 type Field struct {
@@ -48,12 +55,19 @@ type Input interface {
 	GetVal() interface{}
 }
 
-func Build(name string, st interface{}) *Model {
+type HasuraClient struct {
+	Url    string
+	Secret string
+}
+
+func (h *HasuraClient) Build(name string, st interface{}) *Model {
 	m := &Model{
 		Name:      name,
 		Struct:    st,
 		Variables: make(map[string]Variable),
 		Wheres:    make(map[string]map[string]interface{}),
+		Client:    graphql.NewClient(h.Url),
+		Secret:    h.Secret,
 	}
 	s := reflect.ValueOf(st).Elem()
 	typeOfT := s.Type()
@@ -67,78 +81,6 @@ func Build(name string, st interface{}) *Model {
 		m.Fields[fi.Name] = fi
 	}
 	return m
-}
-
-func (m *Model) Query(placeholder interface{}) error {
-	query := QueryString(m)
-	req := BuildRequest(query)
-	for k, v := range m.Variables {
-		req.Req.Var(k, v.Value)
-	}
-	resp := req.Query()
-	data := resp[m.Name]
-	jsondata, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(jsondata, &placeholder); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *Model) Mutation(query string, placeholder interface{}) (int, error) {
-	req := BuildRequest(query)
-	for k, v := range m.Variables {
-		req.Req.Var(k, v.Value)
-	}
-	resp := req.Mutate()
-	data := resp[fmt.Sprintf("%s_%s", m.Operation, m.Name)]
-	if placeholder != nil {
-		jsondata, err := json.Marshal(data.Returning)
-		if err != nil {
-			return -1, err
-		}
-		if err = json.Unmarshal(jsondata, &placeholder); err != nil {
-			return -1, err
-		}
-	}
-	return data.AffectedRows, nil
-}
-
-func (m *Model) UpdateAll(val interface{}, placeholder interface{}) (int, error) {
-	return m.UpdateOp(val, placeholder)
-}
-
-func (m *Model) Update(val interface{}, placeholder interface{}) (int, error) {
-	if len(m.Wheres) == 0 {
-		panic("no where clause for update operation is not permitted, use UpdateAll instead")
-	}
-	return m.UpdateOp(val, placeholder)
-}
-
-func (m *Model) UpdateOp(val interface{}, placeholder interface{}) (int, error) {
-	m.SetOperation("update")
-	m.SetVariable("changes", &Changes{val: val})
-	return m.Mutation(UpdateString(m), placeholder)
-}
-
-func (m *Model) Insert(val interface{}, placeholder interface{}) (int, error) {
-	m.SetOperation("insert")
-	m.SetVariable("objects", &Inputs{val: val})
-	return m.Mutation(InsertString(m), placeholder)
-}
-
-func (m *Model) Delete(placeholder interface{}) (int, error) {
-	m.SetOperation("delete")
-	return m.Mutation(DeleteString(m), placeholder)
-}
-
-func (m *Model) SetOperation(operation string) {
-	if m.Operation != "" {
-		panic("only one operation is allowed")
-	}
-	m.Operation = operation
 }
 
 func (m *Model) SetVariable(name string, val interface{}) *Model {
@@ -177,9 +119,9 @@ func (m *Model) getGQLType(goType reflect.Type) string {
 		fallthrough
 	case "*time.Time":
 		return "timestamptz"
-	case "*dao.Changes":
+	case "*hasura.Changes":
 		return fmt.Sprintf("%s_set_input", m.Name)
-	case "*dao.Inputs":
+	case "*hasura.Inputs":
 		return fmt.Sprintf("[%s_insert_input!]!", m.Name)
 	}
 	return name

@@ -11,11 +11,15 @@ type User struct {
 }
 
 func main() {
-	hasura.Init("http://127.0.0.1:8484/v1/graphql", "4HTSS9CWbnBuR49yAuhhaqSJUSQG8wjSb4bUkQTtgNrQ2RfvBmTLLe35V8vBxeE6")
-	model := hasura.Build("user", &User{})
+	h := &hasura.HasuraClient{
+		Url:    "http://127.0.0.1:8484/v1/graphql",
+		Secret: "4HTSS9CWbnBuR49yAuhhaqSJUSQG8wjSb4bUkQTtgNrQ2RfvBmTLLe35V8vBxeE6",
+	}
 	users := make([]User, 0)
-	_ = model.SetWhere("id", "_eq", "peter").
-		SetWhere("password", "_eq", "iampeter").
-		Query(&users)
-	log.Println(users)
+	row, err := h.Build("user", &User{}).SetWhere("id", "_eq", "peter").
+		Update(map[string]string{"name": "Peter Chan"}, &users)
+	if err != nil {
+		log.Panic(err)
+	}
+	log.Println(row, users)
 }
