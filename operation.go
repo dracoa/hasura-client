@@ -7,6 +7,20 @@ import (
 	"github.com/machinebox/graphql"
 )
 
+func (m *Model) Raw(rawStr string) (map[string]interface{}, error) {
+	ctx := context.Background()
+	req := graphql.NewRequest(rawStr)
+	for k, v := range m.Variables {
+		req.Var(k, v.Value)
+	}
+	req.Header.Set("x-hasura-admin-secret", m.Secret)
+	var resp = make(map[string]interface{})
+	if err := m.Client.Run(ctx, req, &resp); err != nil {
+		panic(err)
+	}
+	return resp, nil
+}
+
 func (m *Model) Query(placeholder interface{}) error {
 	ctx := context.Background()
 	req := graphql.NewRequest(QueryString(m))

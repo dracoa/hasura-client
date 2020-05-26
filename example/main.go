@@ -16,10 +16,13 @@ func main() {
 		Secret: "4HTSS9CWbnBuR49yAuhhaqSJUSQG8wjSb4bUkQTtgNrQ2RfvBmTLLe35V8vBxeE6",
 	}
 	users := make([]User, 0)
-	row, err := h.Build("user", &User{}).SetWhere("id", "_eq", "peter").
-		Update(map[string]string{"name": "Peter Chan"}, &users)
+	result, err := h.Build("user", &User{}).Raw(`query BaseQuery  {
+  user (where: {}) {
+	id name 
+  }
+}`)
 	if err != nil {
 		log.Panic(err)
 	}
-	log.Println(row, users)
+	log.Println(result, users)
 }
