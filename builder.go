@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"text/template"
 )
@@ -59,7 +58,6 @@ func QueryString(m *Model) string {
 		Variables: Variables(m),
 		Wheres:    Wheres(m),
 	})
-	log.Println(query)
 	return query
 }
 

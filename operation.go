@@ -5,7 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/machinebox/graphql"
+	"log"
+	"os"
+	"strconv"
 )
+
+var debug = false
+
+func init() {
+	debug, _ = strconv.ParseBool(os.Getenv("HASURA_DEBUG_MODE"))
+	log.Println("Debug Mode (HASURA_DEBUG_MODE): ", debug)
+}
 
 func (m *Model) Raw(rawStr string) (map[string]interface{}, error) {
 	ctx := context.Background()
@@ -14,6 +24,11 @@ func (m *Model) Raw(rawStr string) (map[string]interface{}, error) {
 		req.Var(k, v.Value)
 	}
 	req.Header.Set("x-hasura-admin-secret", m.Secret)
+
+	if debug {
+		log.Println(req)
+	}
+
 	var resp = make(map[string]interface{})
 	if err := m.Client.Run(ctx, req, &resp); err != nil {
 		panic(err)
@@ -28,6 +43,10 @@ func (m *Model) Query(placeholder interface{}) error {
 		req.Var(k, v.Value)
 	}
 	req.Header.Set("x-hasura-admin-secret", m.Secret)
+
+	if debug {
+		log.Println(req)
+	}
 
 	var resp = make(map[string]interface{})
 	if err := m.Client.Run(ctx, req, &resp); err != nil {
@@ -52,6 +71,11 @@ func (m *Model) Mutation(query string, placeholder interface{}) (int, error) {
 		req.Var(k, v.Value)
 	}
 	req.Header.Set("x-hasura-admin-secret", m.Secret)
+
+	if debug {
+		log.Println(req)
+	}
+
 	resp := make(map[string]MutationResult)
 	if err := m.Client.Run(ctx, req, &resp); err != nil {
 		panic(err)
