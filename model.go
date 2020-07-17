@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/machinebox/graphql"
 	"reflect"
+	"strings"
 )
 
 type Model struct {
@@ -24,9 +25,23 @@ type MutationResult struct {
 }
 
 type Field struct {
-	Name         string
-	SkipOnInsert bool
-	GoField      reflect.Value
+	Name    string
+	GoField reflect.Value
+}
+
+func (f Field) ToString() string {
+	if strings.HasPrefix(f.GoField.Type().String(), "struct") {
+		str := fmt.Sprintf("%s {", f.Name)
+		typeOfT := f.GoField.Type()
+		subFields := make([]string, 0)
+		for i := 0; i < typeOfT.NumField(); i++ {
+			subFields = append(subFields, typeOfT.Field(i).Tag.Get("json"))
+		}
+
+		str += fmt.Sprintf(" %s }", strings.Join(subFields, " "))
+		return str
+	}
+	return f.Name
 }
 
 type Variable struct {
@@ -125,4 +140,8 @@ func (m *Model) getGQLType(goType reflect.Type) string {
 		return fmt.Sprintf("[%s_insert_input!]!", m.Name)
 	}
 	return name
+}
+
+func (m *Model) BaseClient() *graphql.Client {
+	return m.Client
 }

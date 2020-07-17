@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"text/template"
 )
 
 const BaseQueryTpl = `query {{.Name}} {{ .Variables }} {
   {{ .Model.Name }} (where: {{ .Wheres }}) {
-	{{ range $f := .Model.Fields }}{{ $f.Name }} {{ end }}
+	{{ range $f := .Model.Fields }}{{ $f.ToString }} {{ end }}
   }
 }
 `
@@ -19,7 +20,7 @@ const BaseUpdateTpl = `mutation {{.Name}} {{ .Variables }} {
   update_{{ .Model.Name }} (where: {{ .Wheres }}, _set: $changes) {
 	affected_rows
 	returning {
-		{{ range $f := .Model.Fields }}{{ $f.Name }} {{ end }}
+		{{ range $f := .Model.Fields }}{{ $f.ToString }} {{ end }}
 	}
   }
 }
@@ -29,7 +30,7 @@ const BaseInsertTpl = `mutation {{.Name}} {{ .Variables }} {
   insert_{{ .Model.Name }} (objects: $objects) {
 	affected_rows
 	returning {
-		{{ range $f := .Model.Fields }}{{ $f.Name }} {{ end }}
+		{{ range $f := .Model.Fields }}{{ $f.ToString }} {{ end }}
 	}
   }
 }
@@ -52,12 +53,14 @@ type TplContent struct {
 }
 
 func QueryString(m *Model) string {
-	return Base(BaseQueryTpl, &TplContent{
+	query := Base(BaseQueryTpl, &TplContent{
 		Name:      "BaseQuery",
 		Model:     m,
 		Variables: Variables(m),
 		Wheres:    Wheres(m),
 	})
+	log.Println(query)
+	return query
 }
 
 func UpdateString(m *Model) string {
