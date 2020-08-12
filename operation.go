@@ -3,6 +3,7 @@ package hasura
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/machinebox/graphql"
 	"log"
@@ -103,6 +104,17 @@ func (m *Model) Update(val interface{}, placeholder interface{}) (int, error) {
 		panic("no where clause for update operation is not permitted, use UpdateAll instead")
 	}
 	return m.updateOp(val, placeholder)
+}
+
+func (m *Model) UpdateOne(val interface{}, placeholder interface{}) (affectedRows int, err error) {
+	affectedRows, err = m.updateOp(val, placeholder)
+	if err != nil {
+		return affectedRows, err
+	}
+	if affectedRows != 1 {
+		return affectedRows, errors.New("not exactly update one row")
+	}
+	return affectedRows, nil
 }
 
 func (m *Model) Insert(val interface{}, placeholder interface{}) (int, error) {
