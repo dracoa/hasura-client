@@ -95,16 +95,18 @@ func Wheres(m *Model) string {
 		parts := make([]string, len(v))
 		var i = 0
 		for ik, iv := range v {
-			sb, _ := json.Marshal(iv)
-			var val = string(sb)
-			if strings.HasPrefix(val, "\"$") {
-				parts[i] = fmt.Sprintf("%s: %v", ik, iv)
-			} else {
-				parts[i] = fmt.Sprintf("%s: %v", ik, string(sb))
+			if ik != "" {
+				sb, _ := json.Marshal(iv)
+				var val = string(sb)
+				if strings.HasPrefix(val, "\"$") {
+					parts[i] = fmt.Sprintf("%s: %v", ik, iv)
+				} else {
+					parts[i] = fmt.Sprintf("%s: %v", ik, string(sb))
+				}
 			}
 		}
 		str += strings.Join(parts, ",")
-		str += "}"
+		str += "},"
 	}
 	str += "}"
 	return str
