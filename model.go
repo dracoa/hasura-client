@@ -1,22 +1,26 @@
 package hasura
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/machinebox/graphql"
+	"io/ioutil"
+	"net/http"
 	"reflect"
 	"strings"
 )
 
 type Model struct {
-	Name      string
-	Struct    interface{}
-	Fields    map[string]Field
-	Variables map[string]Variable
-	Wheres    map[string]map[string]interface{}
-	Operation string
-	End       bool
-	Client    *graphql.Client
-	Secret    string
+	Name          string
+	Struct        interface{}
+	Fields        map[string]Field
+	Variables     map[string]Variable
+	Wheres        map[string]map[string]interface{}
+	Operation     string
+	End           bool
+	Client        *graphql.Client
+	Secret        string
+	QueryEndpoint string
 }
 
 type MutationResult struct {
@@ -25,8 +29,9 @@ type MutationResult struct {
 }
 
 type Field struct {
-	Name    string
-	GoField reflect.Value
+	Name     string
+	GoField  reflect.Value
+	Sequence bool
 }
 
 func (f Field) ToString() string {
@@ -77,12 +82,13 @@ type HasuraClient struct {
 
 func (h *HasuraClient) Build(name string, st interface{}) *Model {
 	m := &Model{
-		Name:      name,
-		Struct:    st,
-		Variables: make(map[string]Variable),
-		Wheres:    make(map[string]map[string]interface{}),
-		Client:    graphql.NewClient(h.Url),
-		Secret:    h.Secret,
+		Name:          name,
+		Struct:        st,
+		Variables:     make(map[string]Variable),
+		Wheres:        make(map[string]map[string]interface{}),
+		Client:        graphql.NewClient(h.Url),
+		Secret:        h.Secret,
+		QueryEndpoint: strings.ReplaceAll(h.Url, ".hk/v1/graphql", ".hk:9443/v1/query"),
 	}
 	s := reflect.ValueOf(st).Elem()
 	typeOfT := s.Type()
@@ -144,4 +150,27 @@ func (m *Model) getGQLType(goType reflect.Type) string {
 
 func (m *Model) BaseClient() *graphql.Client {
 	return m.Client
+}
+
+func (m *Model) RunSql(sql string) (statusCode int, response []byte, err error) {
+	var jsonStr = []byte(fmt.Sprintf(`{
+   				 	"type": "run_sql",
+					"args": {
+						"sql": "%s;"
+					}
+				}`, sql))
+	req, err := http.NewRequest("POST", m.QueryEndpoint, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-hasura-admin-secret", m.Secret)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	return resp.StatusCode, body, nil
 }

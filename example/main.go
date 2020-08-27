@@ -6,7 +6,7 @@ import (
 )
 
 type User struct {
-	Id       string `json:"id"`
+	Id       string `json:"id" sequence:"true"`
 	Name     string `json:"name"`
 	UserRole struct {
 		Role string `json:"role"`
@@ -18,10 +18,9 @@ func main() {
 		Url:    "http://127.0.0.1:8484/v1/graphql",
 		Secret: "4HTSS9CWbnBuR49yAuhhaqSJUSQG8wjSb4bUkQTtgNrQ2RfvBmTLLe35V8vBxeE6",
 	}
-	model := h.Build("user", &User{}).
-		SetWhere("id", "_eq", "mary").
-		SetWhere("user_role", "", "")
-	log.Println(hasura.QueryString(model))
+	model := h.Build("user", &User{})
+	s, i, e := model.RunSql("select current_date")
+	log.Println(s, i, e)
 
 	//.Query(&users)
 	//if err != nil {
